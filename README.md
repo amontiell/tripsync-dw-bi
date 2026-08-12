@@ -1,34 +1,49 @@
-# TripSync — Data Warehouse y Business Intelligence
+# TripSync — Base de Datos Relacional
 
-Modelado dimensional (Data Warehouse) y dashboards de Business Intelligence para **TripSync**, una app de gestión de viajes y gastos grupales. El proyecto completo (modelo OLTP, procedimientos almacenados y triggers) se desarrolló en varios TPs de la materia; este repositorio documenta específicamente la etapa de generación del DW y BI.
+Modelo de datos y objetos de base de datos (SQL Server) del proyecto **TripSync**, una plataforma de gestión colaborativa de viajes (organización de itinerarios, gastos compartidos y pagos entre participantes), desarrollado para la materia Gestión de Datos (ITBA).
 
-Trabajo práctico de la materia **Gestión de Datos** — ITBA. Trabajo grupal (4 integrantes).
-
-## Modelo multidimensional
-
-Esquema en estrella con `FACT_GASTO` como tabla de hechos central, registrando cada gasto asociado a un viaje. Dimensiones: fecha (con jerarquía fecha → mes → año), usuario, viaje, categoría de gasto, destino (con jerarquía destino → país), moneda, tipo de transporte y edad (con jerarquía edad → rango etario).
-
-Ver `dw_tripsync.sql` para el código de creación y poblado de la Fact Table y las dimensiones adicionales.
-
-## Dashboard de Business Intelligence (Power BI)
-
-El tablero se organiza en 2 hojas:
-
-**Hoja 1 — Comportamiento general de gastos**: vista panorámica de dónde, cuándo y cómo se viaja. Incluye KPIs (total de viajes, total gastado, gasto promedio), destinos más visitados, evolución mensual de viajes, distribución geográfica del gasto y gastos por tipo de transporte. Filtros por año, país y transporte.
-
-**Hoja 2 — Análisis económico**: foco en cuánto y cómo se gasta. Incluye gastos por categoría, gastos por categoría y destino, gasto por trimestre y año, gasto promedio según duración del viaje, y evolución del gasto acumulado por año. Filtros por año, transporte, categoría y fecha.
-
-Cada visualización del tablero fue diseñada con un objetivo de negocio concreto y acompañada de una interpretación orientada a decisiones (por ejemplo: priorización de acuerdos comerciales según el destino y categoría de mayor gasto, detección de caída sostenida en la cantidad de viajes mensuales, identificación de la fuerte concentración del gasto en la categoría Alojamiento y en transporte aéreo).
-
-## Enfoque técnico
-
-- **Modelado dimensional**: diseño de esquema en estrella, con dimensiones jerárquicas (fecha, edad, destino) para permitir distintos niveles de agregación en el análisis.
-- **SQL**: generación de la Fact Table mediante joins sobre el modelo transaccional (OLTP), creación y poblado de dimensiones adicionales no presentes en el modelo original.
-- **Business Intelligence**: diseño de un tablero de Power BI con 12 visualizaciones distintas (KPIs, treemap, gráfico de área, mapa geográfico, dona, embudo, barras apiladas, cascada), cada una vinculada a una decisión de negocio específica.
-
-## Estructura del repositorio
+Este repositorio reúne las tres entregas del diseño e implementación de la base:
 
 ```
-dw_tripsync.sql              → script SQL: creación y poblado de la Fact Table y dimensiones
-informe_dw_bi_tripsync.pdf   → informe completo: modelo dimensional, código SQL, y documentación detallada del tablero de Power BI
+tripsync-database/
+├── 01-modelo-logico-fisico/
+│   └── tp2_modelo_logico_fisico.sql
+├── 02-implementacion-fisica/
+│   └── tp3_ddl_checks.sql
+├── 03-triggers-procedures/
+│   └── tp4_triggers_procedures_corregido.sql
 ```
+
+## Contenido
+
+**01 — Modelo Lógico y Físico**
+Diagrama entidad-relación y primera definición de tablas del dominio: usuarios, viajes, destinos, gastos, pagos y participación en actividades.
+
+**02 — Implementación del Modelo Físico**
+DDL completo (tablas, claves foráneas) y constraints de negocio (`CHECK`) sobre campos críticos: estados válidos de un viaje, coherencia de fechas, rangos de porcentaje en gastos compartidos, formato de documento, entre otros. Cada constraint incluye su caso de inserción válida e inválida como evidencia de testing.
+
+**03 — Triggers y Procedures**
+Cinco triggers (actualización automática de contadores, validación de fechas de gasto, detección de gasto elevado, validación de destino activo, bloqueo de cambio de email) y cinco stored procedures (resumen de viaje, ranking de destinos por gasto, balance de usuario, desvío de presupuesto, ranking de usuarios por participación).
+
+## Evolución del modelo
+
+El esquema fue refinado entre TP2 y TP3 a partir de feedback sobre tipos de datos y constraints: por ejemplo, `email` pasó de `text` a `varchar(40)`, `tipo_documento` de `text` a `varchar(15)`, y `participacion_gasto` de `varchar(50)` a `DECIMAL(5,2)` (necesario para que el check `BETWEEN 0 AND 100` tuviera sentido). También se renombró `tipo_transporte`/`id_transporte` a `id_tipo_transporte` para mayor claridad semántica.
+
+## Corrección post-entrega (TP4)
+
+Tras una revisión posterior a la entrega, se corrigieron dos bugs de lógica:
+
+- **`trg_detectar_gasto_elevado`**: el trigger original asumía una única fila insertada en `inserted`, dando resultados no determinísticos con inserts multi-fila, y no verificaba si el usuario ya estaba registrado (generaba duplicados). Se corrigió para procesar todos los usuarios afectados por el INSERT y evitar duplicados con `NOT EXISTS`.
+- **`sp_ranking_usuarios_por_participacion`**: la suma de gastos usaba `SUM(DISTINCT ...)`, lo que descartaba gastos con montos coincidentes y subestimaba el total. Se eliminó el `DISTINCT` innecesario.
+- **`sp_desvio_presupuesto_viaje`**: se agregó `NULLIF` en el denominador para evitar división por cero/NULL cuando un viaje no tiene presupuesto cargado.
+
+El archivo `tp4_triggers_procedures_corregido.sql` incluye ya la versión corregida de los tres objetos.
+
+## Stack
+
+SQL Server (T-SQL)
+
+## Autoras
+
+Grupo 15 — Comisión D, Gestión de Datos (ITBA)
+Campasso, Matilde · Montiel, Agostina · Lee, Aylin Florencia · Yoo, Sabrina
